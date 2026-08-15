@@ -5,3 +5,6 @@ coverage/
 *.tgz
 reports/
 .tmp-*
+# 本机专属 agent 指令（不提交远程）
+AGENTS.local.md
+CLAUDE.local.md
