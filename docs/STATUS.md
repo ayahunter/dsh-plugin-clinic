@@ -38,13 +38,16 @@
 
 ## 进行中 / 待办
 
-- [ ] **发布 v0.1.0（T2）** —— 名称核验完成（2026-08-16 官方 registry 404 未被占用）；
-  **阻塞点**：npm 未登录（`npm whoami` → ENEEDAUTH）且 registry 指向
-  `https://registry.npmmirror.com`（发布必须用官方 registry）；无 GitHub 凭据
-  （无 gh CLI、无 GITHUB_TOKEN）。解除步骤见下方"阻塞解除步骤（T2）"；
-  社区清单提交准备已完成（见下节）。
-- [ ] **CI 兼容矩阵生效（T3）** —— workflow 与 pin 脚本已提交（36f7652），
-  待推送到 GitHub 后随 tag/manual dispatch 生效。
+- [x] **发布 v0.1.0（T2，2026-08-16 完成）** ——
+  - npm：`dsh-plugin-clinic@0.1.0` 已发布（`latest` tag）；发布前发现并修复发布阻断 bug
+    （types/exports/files 指向不存在的 `lib/types/` 且 files 漏掉运行时模块，提交 28610ec）；
+    tarball 安装冒烟测试通过（main/invariant/types 可加载、13 个 d.ts、engine 完整）。
+  - GitHub：`ayahunter/dsh-plugin-clinic` 仓库已存在并推送（用户完成）；补设仓库
+    description、homepage（npm 包页）与 **`dsh-plugin` topic**（Oh-My-DSH 自动收录
+    入口 + awesome 清单要求）；`v0.1.0` tag 已推送并**触发 CI 兼容矩阵**。
+  - 剩余：awesome-dsh-plugin 精选清单 PR（条目文本已备妥，见下节）。
+- [ ] **CI 兼容矩阵结果（T3）** —— `v0.1.0` tag 已触发（2 OS × rc.3/rc.6 四单元）；
+  结果待确认（rc.3 单元失败属预期发现，记录后跟进）。
 
 ## 社区清单提交准备（T2 调研结论，待 GitHub 凭据）
 
@@ -61,27 +64,16 @@ PR 条目文本模板（等 GitHub 仓库创建后替换 `<owner>`）：
 **策略**：创建 GitHub 仓库后立即打 `dsh-plugin` topic（同时满足 Oh-My-DSH 自动收录与
 awesome 主清单要求），再向 awesome-dsh-plugin 提 PR，beancookie 视需要提 PR。
 
-## 阻塞解除步骤（T2）
+## 阻塞解除步骤（T2）——已完成，仅剩 awesome PR
 
-1. **npm publish**：
-   ```sh
-   npm login --registry=https://registry.npmjs.org   # 输入 npm 账号凭据
-   cd D:\agentwork\code\dsh-plugin-clinic
-   pnpm run typecheck && pnpm run test && pnpm run build
-   pnpm publish --registry=https://registry.npmjs.org --access public
-   ```
-2. **GitHub 仓库 + topic**（任选其一）：
-   - 安装 gh CLI 并 `gh auth login`，然后：
-     ```sh
-     gh repo create dsh-plugin-clinic --public --source . --push
-     gh repo edit dsh-plugin-clinic --add-topic dsh-plugin
-     ```
-   - 或网页端：新建同名仓库 → 推送 → Settings → Topics 添加 `dsh-plugin`。
-3. **社区清单**（均需 GitHub 账号，网页或 gh 提 PR/issue）：
-   - `awesome-dsh-plugin`（HANDOFF 记录 270+ 收录）：找到仓库后按 README 贡献流程
-     在列表追加 `dsh-plugin-clinic`（一行：名称 + 链接 + 一句话定位）。
-   - `Oh-My-DSH`：找到仓库后按其贡献流程提 PR。
-   - `beancookie`：找到仓库后按其贡献流程提 PR/issue。
+1. ~~npm publish~~ ✅ 2026-08-16 完成（账号 ayahunter；2FA 经 bypass token 通过；
+   期间修复 .npmrc token 行缺失 `//` 前缀的格式问题）。
+2. ~~GitHub 仓库 + topic~~ ✅ 完成（description/homepage/topic 已通过 API 设置）。
+3. **awesome-dsh-plugin PR**（待做，条目文本见下节）：
+   - fork `awesome-dsh-plugin/awesome-dsh-plugin` → 在 `README.md` 与 `README.zh.md`
+     的 Development & Runtime 类别追加一行条目（文本模板见下节）→ PR。
+   - beancookie/awesome-dsh-plugin 视需要提 PR。
+   - Oh-My-DSH 无需操作（`dsh-plugin` topic 已打，4 小时自动同步）。
 
 ## 真实环境观察（T1 附带结论）
 
