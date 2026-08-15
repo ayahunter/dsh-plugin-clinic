@@ -1,7 +1,7 @@
 # 开发指南
 
 > 面向 dsh-plugin-clinic 的贡献者。规范与纪律见 [AGENTS.md](../AGENTS.md)；
-> 设计决策见 [PLAN.md](PLAN.md)。
+> 设计决策记录在本地 `docs/PLAN.md`（内部工作文档，不随仓库发布）。
 
 ## 环境
 

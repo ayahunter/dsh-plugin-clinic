@@ -2,7 +2,9 @@
 
 dsh-plugin-clinic 是 DeepSeek Harness（DSH）生态的**只读插件诊所**：对 `$DSH_HOME/profiles/*`
 中已安装插件集合做健康体检，交付给模型工具（`plugin_health`）、Web 体检面板和纯 JSON 报告。
-产品与架构决策见 [docs/PLAN.md](docs/PLAN.md)；当前进度见 [docs/STATUS.md](docs/STATUS.md)。
+产品与架构决策见 `docs/PLAN.md`；当前进度见 `docs/STATUS.md`；接手说明见 `docs/HANDOFF.md`。
+**这三个文件是内部工作文档（含本机路径），被 .gitignore 排除、不随仓库发布**；对外文档为
+`docs/usage.md`（用法）、`docs/checks.md`（检查规则）、`docs/development.md`（开发指南）。
 
 ## 核心原则（第一性原理，不可违背）
 

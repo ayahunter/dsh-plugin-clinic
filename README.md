@@ -2,7 +2,7 @@
 
 **Plugin Clinic** — read-only health checks for the installed DeepSeek Harness plugin set.
 
-[中文](README.zh.md) · [Plan](docs/PLAN.md) · [Status](docs/STATUS.md) · [Usage](docs/usage.md) · [Checks](docs/checks.md)
+[中文](README.zh.md) · [Usage](docs/usage.md) · [Checks](docs/checks.md)
 
 DeepSeek Harness is "everything is a plugin", which spreads stability risk across a
 freely-composable configuration layer — yet nothing tells you whether your installed set
@@ -23,6 +23,16 @@ state.
   `patch-health`, `provenance`.
 - **One row install** — a single npm bundle patch mounts both the Host engine and the
   browser dashboard.
+
+## Screenshots
+
+The Clinic dashboard inside the official Web GUI — Settings → Plugins → 体检. Per-profile
+plugin cards carry severity-colored status lines, expandable findings, and the summary bar
+counts critical/warning/info findings across every profile:
+
+![Clinic dashboard in Settings → Plugins](docs/screenshots/clinic-tab-dashboard.png)
+
+![Health summary bar](docs/screenshots/clinic-tab-summary.png)
 
 ## Install
 
@@ -79,8 +89,8 @@ official `/api` fence); they are not authentication.
 One npm package, two halves. The Host half owns a pure diagnostic engine
 (`src/engine/`, no I/O, no ctx), the `plugin_health` tool, and the `/clinic` routes.
 The browser half registers the Clinic tab into the official `settings.plugins.tab`
-extension point and fetches the same report the tool returns. Design rationale and the
-full decision trail live in [docs/PLAN.md](docs/PLAN.md).
+extension point and fetches the same report the tool returns. Design rationale is
+documented in the repository's internal working docs (not shipped with the package).
 
 ## Model Experience
 
@@ -124,9 +134,6 @@ The execution result is a per-turn tool result, not part of any later request pr
 
 ## Documentation
 
-- [docs/PLAN.md](docs/PLAN.md) — the full implementation plan (first-principles design,
-  check specs, failure modes, acceptance criteria)
-- [docs/STATUS.md](docs/STATUS.md) — what is done, what is not, and what is blocked
 - [docs/usage.md](docs/usage.md) — install, configuration, tool and dashboard usage
 - [docs/development.md](docs/development.md) — build, test, publish, contribute
 - [docs/checks.md](docs/checks.md) — the 8 check rules in detail

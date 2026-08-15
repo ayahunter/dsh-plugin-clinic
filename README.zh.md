@@ -2,7 +2,7 @@
 
 **插件诊所** —— 对 DeepSeek Harness（DSH）已安装插件集合的只读健康体检。
 
-[English](README.md) · [规划](docs/PLAN.md) · [进度](docs/STATUS.md) · [使用指南](docs/usage.md) · [检查项参考](docs/checks.md)
+[English](README.md) · [使用指南](docs/usage.md) · [检查项参考](docs/checks.md)
 
 DSH 的"一切皆插件"把稳定性风险分散到了用户可自由组合的配置层——但没有任何东西告诉你
 已安装的插件集合是否健康。`dsh-plugin-clinic` 补上这一环：体检 Harness home 下每个
@@ -19,6 +19,15 @@ profile 的插件，报告加载健康、依赖完整、版本兼容、安装脚
   `install-scripts`（安装脚本风险）、`duplicate`（重复）、`patch-health`（patch 引用完整）、
   `provenance`（来源标注）。
 - **一行安装** —— 单个 npm bundle patch 同时挂载 Host 引擎与浏览器面板。
+
+## 界面预览
+
+官方 Web GUI 中的体检面板 —— 设置 → 插件 → 体检。插件卡片按严重性着色，可展开查看
+每条发现；摘要条按严重级统计全部 profile 的 critical / warning / info：
+
+![设置 → 插件 中的体检面板](docs/screenshots/clinic-tab-dashboard.png)
+
+![健康摘要条](docs/screenshots/clinic-tab-summary.png)
 
 ## 安装
 
@@ -73,8 +82,8 @@ dsh plugin --profile web add github:you/dsh-plugin-clinic
 
 单 npm 包、双 half。Host half 拥有纯函数诊断引擎（`src/engine/`，无 I/O、无 ctx）、
 `plugin_health` 工具与 `/clinic` 路由；浏览器 half 把体检 tab 注册进官方
-`settings.plugins.tab` 扩展点，拉取与工具相同的报告。设计推演与完整决策链见
-[docs/PLAN.md](docs/PLAN.md)。
+`settings.plugins.tab` 扩展点，拉取与工具相同的报告。设计决策记录在仓库内部工作文档
+（不随包发布）。
 
 ## Model Experience（模型体验）
 
@@ -113,8 +122,6 @@ profile 中每个 agent 的系统提示词组装。
 
 ## 文档
 
-- [docs/PLAN.md](docs/PLAN.md) —— 完整实施规划（第一性原理设计、检查规格、失败模式、验收标准）
-- [docs/STATUS.md](docs/STATUS.md) —— 做了什么、没做什么、被什么阻塞
 - [docs/usage.md](docs/usage.md) —— 安装、配置、工具与面板用法
 - [docs/development.md](docs/development.md) —— 构建、测试、发布、贡献
 - [docs/checks.md](docs/checks.md) —— 8 项检查规则详解

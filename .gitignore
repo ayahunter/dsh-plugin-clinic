@@ -8,3 +8,7 @@ reports/
 # 本机专属 agent 指令（不提交远程）
 AGENTS.local.md
 CLAUDE.local.md
+# 内部工作文档（交接/规划/进度，含本机路径；不随仓库发布）
+docs/HANDOFF.md
+docs/PLAN.md
+docs/STATUS.md
