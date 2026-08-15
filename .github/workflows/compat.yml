@@ -1,0 +1,46 @@
+# DSH compatibility matrix: the official rc API drifts destructively, so every
+# release (tag) and manual dispatch pins the @deepseek-ai/dsh-* dependencies to
+# each DSH rc the npm registry still ships (0.1.0-rc.3 historical, 0.1.0-rc.6
+# current) and runs the full gate (typecheck + test + build) per cell. Pattern
+# follows dsh-plugin-doctor's compatibility workflow; failures in older rc
+# cells are findings, not release blockers (the peer contract is ^0.1.0-rc.6).
+name: DSH Compatibility Matrix
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    name: ${{ matrix.os }} / DSH ${{ matrix.dsh }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        dsh: [0.1.0-rc.3, 0.1.0-rc.6]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.7.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Pin DSH release ${{ matrix.dsh }}
+        run: node scripts/pin-dsh-version.mjs ${{ matrix.dsh }}
+      - name: Install
+        # The pin rewrites package.json per cell, so the lockfile is
+        # regenerated for that cell instead of frozen.
+        run: pnpm install --no-frozen-lockfile
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Test
+        run: pnpm run test
+      - name: Build
+        run: pnpm run build
