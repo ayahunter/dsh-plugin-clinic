@@ -3,9 +3,9 @@
 本项目的变更日志。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [0.1.0] - 2026-08-16
 
-### Fixed（真实环境验收发现，2026-08-16）
+### Fixed（真实环境验收发现）
 
 - **Host 路由装载竞争**：`/clinic` 路由改为经 `ctx.inject(['webServer'])` 惰性挂载。
   真实 profile 树中 webserver 行与本插件并行装载，apply 时 `ctx.get('webServer')`
@@ -24,7 +24,7 @@
 - **patch-health override 匹配**：override 行按原始 row id 匹配（loader 装载后
   entry id 带 `include:` 前缀）；快照新增 `rawId` 字段。
 
-### Added（规划中，未发布）
+### Added
 
 - 插件诊所 v1：`plugin_health` 模型工具、Web 体检面板（Settings → 插件 → 体检）、
   `/clinic` HTTP 路由、`schemaVersion: 1` 报告契约。
