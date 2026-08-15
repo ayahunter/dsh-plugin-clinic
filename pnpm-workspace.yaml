@@ -8,3 +8,10 @@ minimumReleaseAgeExclude:
   - node-addon-require-builtin-win32-ia32-msvc@0.1.5
   - node-addon-require-builtin-win32-x64-msvc@0.1.5
   - node-addon-require-builtin@0.1.5
+
+# pnpm >=10 refuses unlisted build scripts by default; CI installs this repo
+# standalone (the profile linker never manages it), so the esbuild postinstall
+# must be allowed for reproducible installs (mirrors the official
+# plugin-template pnpm settings).
+allowBuilds:
+  esbuild: true

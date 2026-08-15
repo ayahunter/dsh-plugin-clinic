@@ -106,6 +106,20 @@ profile manifest 读取、包解析）在 `inventory.ts` 单独完成，通过�
 **报告组装**（report.ts）：输入收集 → 逐检查器 → 折叠成 ProfileReport → 汇总
 SeverityCounts。严重性优先级 critical > warning > info（多发现取最高）。
 
+### 4.6 官方插件模板对照（2026-08-16 联网实证）
+
+对照对象：`omdsh-dev/plugin-template`（`dsh-external/plugin-template` 的 GitHub
+重定向目标；deepseek-ai / dsh-external 均无官方模板仓库）。差异与取舍：
+
+| 维度 | 模板 | 本仓库 | 结论 |
+|---|---|---|---|
+| 依赖命名空间 | `cordis` ^4.0.0-rc.7 + `@cordisjs/plugin-loader`（cordis 官方线） | `@deepseek-ai/cordis` ^4.0.1 + `@deepseek-ai/cordis-plugin-loader` ^1.0.2（DSH fork 线） | 本仓库匹配 DSH 运行时提供的服务实例（peer 契约）；模板面向通用 cordis 生态 |
+| 构建 | `tsc -b && tsdown`（tsdown ^0.22.2） | 同（tsdown ^0.22.2 + `deps.neverBundle/alwaysBundle`） | 一致；tsdown 0.22 线为官方配方（0.9.x 与 rolldown 不兼容） |
+| Client half | 无 | `dsh.client` 声明 + `__ModuleLoader__.load` 闭包工厂 | 本仓库为超集（面板交付面） |
+| patch 行 | insert 行带示例 config + 独立 invariant companion row | 单 insert 行；invariant 由 apply 内 `ctx.inject(['invariants'])` 惰性注册 | 行为等价，且无 invariants 服务的 profile 不 boot 失败 |
+| 发布元数据 | `engines.node`、`packageManager`、pnpm-workspace `allowBuilds: esbuild` | 已补 `engines.node`（^22.19\|\|>=24）与 `allowBuilds: esbuild`（保留既有 supply-chain 策略） | 已吸收 |
+| 自包含验证 | `verify:self-contained` 脚本 + prepare 重建 | Host 半按设计依赖 node_modules 解析（不 bundle），`prepare` = build | 设计分歧已记录（§4.2）；不追模板 |
+
 ### 4.4 Client 侧
 
 完全照抄官方 `ui-settings-plugin-inventory` 的注册形态（已验证源码）：
@@ -312,8 +326,10 @@ git 安装需 `prepare` 脚本自包含构建（turtle-ui 模式）+ 用户 allo
 
 ## 12. 实施顺序（首个里程碑内）
 
-1. 联网核对官方 `dsh-external/plugin-template`（本规划基于本地源码推导，模板可能补充
-   构建/发布细节）→ 修订本文件；
+1. ~~联网核对官方 `dsh-external/plugin-template`~~ —— **已完成（2026-08-16）**：
+   `dsh-external/plugin-template` 已不存在，GitHub 重定向至 `omdsh-dev/plugin-template`
+   （社区 fork，自称"基于原 turtle ui 官方仓库创建的模板"）；deepseek-ai org 与
+   `dsh-external` org 均无官方模板仓库。对照结论见 4.6 节与附录 B；
 2. 仓库骨架：package.json / tsconfig / tsdown / cordis.patch.yml / LICENSE(MIT)；
 3. `src/types.ts` + engine（inventory → 8 检查器 → report）+ 单测；
 4. `src/tool.ts` + 组合测试（工具路径）；
@@ -322,7 +338,7 @@ git 安装需 `prepare` 脚本自包含构建（turtle-ui 模式）+ 用户 allo
 7. `src/invariant.ts`（空安装器：`No runtime invariant:` 说明——引擎只读性由组合测试
    观察，无事件协议可断言；待引擎获得持久状态时重访）；
 8. README（双语，官方 Model Experience / Known Limitations 格式）+ LICENSE；
-9. 真实环境验收清单执行 → 修复 → 发布 v0.1。
+9. 真实环境验收清单执行 → 修复 → 发布 v0.1（**2026-08-16 验收完成，见 STATUS**）。
 
 ## 附录 A：官方机制锚点（本规划依据）
 
@@ -344,8 +360,9 @@ git 安装需 `prepare` 脚本自包含构建（turtle-ui 模式）+ 用户 allo
 
 ## 附录 B：未决事项（实施期确认）
 
-- `dsh-external/plugin-template` 的确切骨架：**npm 无此包**；已以 dsh-eval 包结构 +
-  官方规范为基准实施（见 STATUS）；联网后对照 GitHub 仓库修订差异。
+- `dsh-external/plugin-template` 的确切骨架：**已对照（2026-08-16）**——npm 无此包，
+  GitHub 重定向至 `omdsh-dev/plugin-template`（社区模板）；差异与取舍见 4.6 节；
+  已吸收 `engines.node` 与 `allowBuilds: esbuild`。
 - 官方 web GUI 对外部 Client half 的构建产物格式：**已解决**——复刻官方
   `packages/client/tsdown.client.ts` 配方（banner/intro/footer、平台模块 external 表、
   `process.env` 替换），`lib/client.js` 产物 head/tail 与官方格式一致；

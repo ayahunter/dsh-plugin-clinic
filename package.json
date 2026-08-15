@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "Plugin Clinic: read-only health checks for the installed DeepSeek Harness plugin set — loader health, dependency integrity, version compatibility, install-script risk, duplicates, and patch integrity, delivered as a model tool, a Web dashboard, and JSON reports.",
   "type": "module",
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
   "main": "lib/index.js",
   "types": "lib/types/index.d.ts",
   "exports": {
