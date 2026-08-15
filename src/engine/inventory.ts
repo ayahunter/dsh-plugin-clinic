@@ -9,7 +9,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, isAbsolute, join } from 'node:path'
-import { load as parseYaml } from 'js-yaml'
+import { load as parseYaml, JSON_SCHEMA, Type } from 'js-yaml'
 import type { ClinicEnvironment } from '../types.ts'
 
 /** Root-fiber phases of a Loader entry, mirroring Cordis FiberState. */
@@ -18,6 +18,8 @@ export type FiberPhase = 'pending' | 'loading' | 'active' | 'failed' | 'unloadin
 /** The Loader-tree facts one entry contributes to a diagnosis. */
 export interface LoaderEntrySnapshot {
   entryId: string
+  /** The raw row id from the config tree (patch overrides match against it). */
+  rawId?: string
   moduleName: string
   enabled: boolean
   fiberPhase: FiberPhase | null
@@ -81,6 +83,13 @@ export interface ProfileInput {
   dependencies: InstalledPackage[]
   /** Bundle patches plus the profile's own cordis.patch.yml. */
   patches: PatchDocument[]
+  /**
+   * Every package name this profile can resolve: manifest bundles and
+   * dependencies plus any patch insert name the installation actually
+   * resolves (in-box bundles live in the installation fallback, and insert
+   * names may be subpaths like `@deepseek-ai/dsh-web-app/startup`).
+   */
+  resolvableNames: ReadonlySet<string>
   loaderEntries: readonly LoaderEntrySnapshot[]
 }
 
@@ -105,7 +114,7 @@ const PROFILE_PATCH_FILENAME = 'cordis.patch.yml'
 interface LoaderEntryView {
   id: string
   disabled?: boolean
-  options: { name?: string; group?: unknown }
+  options: { id?: unknown; name?: string; group?: unknown }
   fiber?: { state: import('@deepseek-ai/cordis').FiberState | string } | undefined
 }
 
@@ -117,6 +126,10 @@ export function snapshotLoaderEntries(entries: Iterable<LoaderEntryView>): Loade
     const moduleName = entry.options.name ?? entry.id
     snapshots.push({
       entryId: entry.id,
+      // Mounted entry ids are prefixed by their tree's include row
+      // ('include:system-prompt'); the raw row id is what patch override
+      // rows target, so carry it through for the patch-health check.
+      ...(typeof entry.options.id === 'string' ? { rawId: entry.options.id } : {}),
       moduleName,
       enabled: !entry.disabled,
       // The loader fiber state vocabulary is the five phases; the structural
@@ -233,7 +246,13 @@ export async function readPatchFile(file: string): Promise<PatchDocument> {
 export function parsePatchRows(text: string): PatchRow[] | null {
   let parsed: unknown
   try {
-    parsed = parseYaml(text)
+    // Official dialect: the Loader's entryListSchema (JSON schema plus a
+    // `!!js` scalar type). Official bundle patches use `!!js` expressions in
+    // row config (e.g. `port: !!js ctx.webStartup.port ?? 3080`); a bare
+    // default-schema parse rejects the tag and would brand every official
+    // patch "unusable". Expressions construct as opaque `__jsExpr` nodes that
+    // the row-structure walk below simply never reads.
+    parsed = parseYaml(text, { schema: ENTRY_LIST_SCHEMA })
   } catch {
     return null
   }
@@ -258,6 +277,15 @@ export function parsePatchRows(text: string): PatchRow[] | null {
   }
   return rows
 }
+
+/** The official entry-list YAML dialect: JSON schema plus the `!!js` scalar type. */
+const ENTRY_LIST_SCHEMA = JSON_SCHEMA.extend(
+  new Type('tag:yaml.org,2002:js', {
+    kind: 'scalar',
+    resolve: (data: unknown): boolean => typeof data === 'string',
+    construct: (data: string): { __jsExpr: string } => ({ __jsExpr: data }),
+  }),
+)
 
 /** Collect every profile input for one run. */
 export async function collectInput(
@@ -298,7 +326,7 @@ async function collectProfile(name: string, dshHome: string, loaderEntries: read
   const { manifest, error: manifestError } = await readProfileManifest(dir)
 
   if (manifest === null) {
-    return { profile: name, dir, manifestPath, manifest: null, ...(manifestError !== undefined ? { manifestError } : {}), bundles: [], dependencies: [], patches: [], loaderEntries }
+    return { profile: name, dir, manifestPath, manifest: null, ...(manifestError !== undefined ? { manifestError } : {}), bundles: [], dependencies: [], patches: [], resolvableNames: new Set(), loaderEntries }
   }
 
   const bundles: InstalledPackage[] = []
@@ -320,7 +348,43 @@ async function collectProfile(name: string, dshHome: string, loaderEntries: read
   const profilePatch = await readPatchFile(join(dir, PROFILE_PATCH_FILENAME))
   if (profilePatch.rows !== null || profilePatch.parseError !== undefined) patches.push(profilePatch)
 
-  return { profile: name, dir, manifestPath, manifest, bundles, dependencies, patches, loaderEntries }
+  // A patch insert names the package it mounts; in a real deployment those
+  // are often in-box packages (resolved from the installation fallback, not
+  // the profile manifest) or subpaths of installed packages. Resolve every
+  // insert name that the manifest does not already name.
+  const resolvableNames = new Set<string>([
+    ...bundles.map((bundle) => bundle.name),
+    ...dependencies.map((dep) => dep.name),
+  ])
+  for (const patch of patches) {
+    for (const row of patch.rows ?? []) {
+      if (row.kind === 'insert' && row.name !== undefined && !resolvableNames.has(row.name)
+        && resolvePackageSpec(row.name, dir)) {
+        resolvableNames.add(row.name)
+      }
+    }
+  }
+
+  return { profile: name, dir, manifestPath, manifest, bundles, dependencies, patches, resolvableNames, loaderEntries }
+}
+
+/**
+ * Whether a package (or package subpath) specifier resolves from the profile
+ * directory. Tries the package-json path first (plain package names), then
+ * the bare specifier (subpath names like `@deepseek-ai/dsh-web-app/startup`
+ * have no `package.json` export to resolve against).
+ */
+function resolvePackageSpec(specifier: string, profileDir: string): boolean {
+  const profileRequire = createRequire(join(profileDir, 'package.json'))
+  for (const candidate of [`${specifier}/package.json`, specifier]) {
+    try {
+      profileRequire.resolve(candidate)
+      return true
+    } catch {
+      // try the next candidate form
+    }
+  }
+  return false
 }
 
 /** Read a bundle's declared patch document, or null when undeclared or unusable. */

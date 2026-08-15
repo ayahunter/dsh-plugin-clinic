@@ -157,9 +157,10 @@ export function checkPatchHealth(
     for (const row of patch.rows) {
       /* v8 ignore next 4 -- exercised by the patch-health assertions; v8 sourcemap misattributes the compound condition */
       if (row.kind === 'insert' && row.name !== undefined) {
-        const resolvable = profile.bundles.some((bundle) => bundle.name === row.name)
-          || profile.dependencies.some((dep) => dep.name === row.name)
-        if (!resolvable) {
+        // Resolvable means "the installation can actually load this name":
+        // manifest bundles and dependencies, plus in-box packages and
+        // subpaths the profile resolves through the installation fallback.
+        if (!profile.resolvableNames.has(row.name)) {
           findings.push(finding('patch-health', 'critical', `Patch "${patch.file}" inserts "${row.name}" which is not resolvable from the profile`, row.id))
         }
       } else if (row.kind === 'override' && !loaderModules.has(row.id)) {

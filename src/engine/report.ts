@@ -27,7 +27,15 @@ export function runClinic(input: EngineInput, severity: Severity = 'info'): Clin
 /** Assemble one profile's report. */
 function runProfile(profile: ProfileInput, input: EngineInput, severity: Severity): ProfileReport {
   const manifestUnreadable = profile.manifest === null
-  const loaderModules = new Set(profile.loaderEntries.map((entry) => entry.moduleName))
+  // Patch override rows target the RAW row ids ('system-prompt'), while
+  // load-health groups by module name and mounted ids carry the tree prefix
+  // ('include:system-prompt') — the tree view needs all three keys.
+  const loaderModules = new Set<string>()
+  for (const entry of profile.loaderEntries) {
+    loaderModules.add(entry.entryId)
+    if (entry.rawId !== undefined) loaderModules.add(entry.rawId)
+    loaderModules.add(entry.moduleName)
+  }
 
   const plugins = new Map<string, { plugin: string; version: string | null; source: PluginReportSource; findings: Finding[] }>()
   const ensurePlugin = (name: string, source: PluginReportSource, version: string | null) => {

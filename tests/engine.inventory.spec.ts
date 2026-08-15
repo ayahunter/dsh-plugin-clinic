@@ -26,6 +26,34 @@ describe('parsePatchRows', () => {
     expect(parsePatchRows('- insert:\n    - nope\n')).toBeNull()
     expect(parsePatchRows('- [1, 2]\n')).toBeNull()
   })
+
+  it('parses official-dialect patches carrying !!js expressions', () => {
+    // Official bundle patches use the Loader's entryListSchema, whose `!!js`
+    // scalars (e.g. `port: !!js ctx.webStartup.port ?? 3080`) would make a
+    // default-schema parse fail — the real web profile's patches are written
+    // exactly like this, so the dialect must parse or every official bundle
+    // reports a false "unusable patch" critical.
+    const rows = parsePatchRows([
+      '- insert:',
+      '    - id: webserver',
+      "      name: '@deepseek-ai/dsh-host-webserver'",
+      "      config:",
+      "        host: !!js ctx.webStartup.host ?? '127.0.0.1'",
+      '        port: !!js ctx.webStartup.port ?? 3080',
+      '- id: tools',
+      '  config:',
+      '    mode: !!js process.env.DSH_TOOLS_MODE',
+    ].join('\n'))
+    expect(rows).toEqual([
+      { kind: 'insert', id: 'webserver', name: '@deepseek-ai/dsh-host-webserver' },
+      { kind: 'override', id: 'tools' },
+    ])
+  })
+
+  it('still rejects a genuinely malformed document even with the official dialect', () => {
+    expect(parsePatchRows('- id: x\n  config:\n    a: !!js\n')).toBeNull()
+    expect(parsePatchRows('!!js process.env.X\n')).toBeNull()
+  })
 })
 
 describe('snapshotLoaderEntries', () => {
@@ -44,6 +72,19 @@ describe('snapshotLoaderEntries', () => {
   it('falls back to the entry id as module name', () => {
     const snapshots = snapshotLoaderEntries([{ id: 'bare', options: {} }])
     expect(snapshots[0]?.moduleName).toBe('bare')
+  })
+
+  it('carries the raw row id through for patch override matching', () => {
+    const snapshots = snapshotLoaderEntries([
+      { id: 'include:system-prompt', options: { id: 'system-prompt', name: '@deepseek-ai/dsh-system-prompt' } },
+    ])
+    expect(snapshots[0]).toEqual({
+      entryId: 'include:system-prompt',
+      rawId: 'system-prompt',
+      moduleName: '@deepseek-ai/dsh-system-prompt',
+      enabled: true,
+      fiberPhase: null,
+    })
   })
 })
 
@@ -234,6 +275,42 @@ describe('collectInput', () => {
       expect(broken?.manifest).toBeNull()
       expect(broken?.patch).toBeNull()
       expect(broken?.resolveError).toContain('not resolvable')
+    } finally {
+      await cleanup()
+    }
+  })
+
+  it('resolves patch insert names through the installation (in-box and subpath specs)', async () => {
+    const { dshHome, cleanup } = await createFixtureHome()
+    try {
+      const { mkdir, writeFile } = await import('node:fs/promises')
+      const { join } = await import('node:path')
+      // A profile whose patches insert an in-box package (not a manifest
+      // dependency) and a subpath specifier of an installed package.
+      const scopedDir = join(dshHome, 'profiles', 'inbox')
+      await mkdir(join(scopedDir, 'node_modules', '@demo', 'pkg'), { recursive: true })
+      await writeFile(join(scopedDir, 'package.json'), JSON.stringify({
+        name: 'dsh-profile-inbox',
+        private: true,
+        dependencies: { '@demo/pkg': '1.0.0' },
+        dsh: { profile: { bundles: [] } },
+      }))
+      await writeFile(join(scopedDir, 'node_modules', '@demo', 'pkg', 'package.json'), JSON.stringify({
+        name: '@demo/pkg',
+        version: '1.0.0',
+        exports: { './startup': './startup.js', './package.json': './package.json' },
+      }))
+      await writeFile(join(scopedDir, 'node_modules', '@demo', 'pkg', 'startup.js'), 'export const name = "startup"\n')
+      await writeFile(join(scopedDir, 'cordis.patch.yml'), [
+        '- insert:',
+        '    - id: s',
+        "      name: '@demo/pkg/startup'",
+      ].join('\n'))
+      const input = await collectInput(dshHome, fixtureEnvironment(dshHome), [], { profiles: ['inbox'] })
+      const inbox = input.profiles[0]
+      expect(inbox?.resolvableNames.has('@demo/pkg/startup')).toBe(true)
+      // A name that resolves neither as a package nor as a subpath stays out.
+      expect(inbox?.resolvableNames.has('@demo/pkg/nope')).toBe(false)
     } finally {
       await cleanup()
     }

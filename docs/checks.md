@@ -28,7 +28,10 @@
 | 声明了 `dsh.bundle.patch` 但文件缺失 / YAML 解析失败 / 不是行数组 | critical | 具体错误 |
 
 说明：bundle 不可解析意味着该 profile boot 时 Loader 会 fail loud——这是把
-"boot 时才暴露"提前到"任何时刻可查"。
+"boot 时才暴露"提前到"任何时刻可查"。patch 解析使用官方 Loader 方言
+（`entryListSchema`：JSON schema + `!!js` 标量类型），官方 bundle patch 中的
+`!!js` 表达式（如 `port: !!js ctx.webStartup.port ?? 3080`）按官方语义解析为
+表达式节点，不会触发"解析失败"。
 
 ## 3. `peer-deps` — 依赖满足（每插件）
 
@@ -85,6 +88,12 @@ home 层 `cordis.patch.yml`（`includeHomePatches` 开启时）。
 | patch 文件不可读 / YAML 解析失败 / 不是行数组 | critical | 具体错误 |
 | `insert` 行引用的包名无法从 profile 解析 | critical | 行 id |
 | `override` 行指向的 entry id 不在 loader 树 | warning | 提示"可能属于未加载的层" |
+
+说明：`insert` 行的"可解析"按真实安装语义判定——manifest 的 bundles 与
+dependencies 之外，还包括安装级 fallback 中的 in-box 包与子路径说明符
+（如 `@deepseek-ai/dsh-web-app/startup`），与 Loader 实际装载能力一致。
+`override` 行按原始 row id 匹配 loader 树（装载后 entry id 带树前缀，
+快照保留 `rawId`）。
 
 ## 8. `provenance` — 来源标注（每插件，info）
 

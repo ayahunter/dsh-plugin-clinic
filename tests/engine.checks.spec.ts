@@ -160,12 +160,31 @@ describe('checkPatchHealth', () => {
   const profile = {
     bundles: [pkg('dsh-plugin-ok', {})],
     dependencies: [],
+    resolvableNames: new Set(['dsh-plugin-ok']),
   } as unknown as ProfileInput
 
   it('flags unresolvable insert names as critical and unknown overrides as warning', () => {
     const findings = checkPatchHealth(patches, profile, new Set(['known-entry']))
     expect(findings).toContainEqual(expect.objectContaining({ severity: 'critical', message: expect.stringContaining('dsh-plugin-missing') }))
     expect(findings).toContainEqual(expect.objectContaining({ severity: 'warning', message: expect.stringContaining('unknown-entry') }))
+  })
+
+  it('accepts in-box insert names the installation resolves though the manifest does not name them', () => {
+    // Real deployments: bundle patches insert in-box packages that resolve
+    // through the installation fallback (and subpaths like
+    // `@deepseek-ai/dsh-web-app/startup`), not through manifest dependencies.
+    const inBox = {
+      bundles: [],
+      dependencies: [],
+      resolvableNames: new Set(['@deepseek-ai/dsh-session', '@deepseek-ai/dsh-web-app/startup']),
+    } as unknown as ProfileInput
+    const rows: PatchDocument[] = [
+      { file: 'base.yml', rows: [
+        { kind: 'insert', id: 's', name: '@deepseek-ai/dsh-session' },
+        { kind: 'insert', id: 'w', name: '@deepseek-ai/dsh-web-app/startup' },
+      ] },
+    ]
+    expect(checkPatchHealth(rows, inBox, new Set())).toEqual([])
   })
 
   it('flags unparsable patch files as critical', () => {

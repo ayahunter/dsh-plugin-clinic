@@ -23,6 +23,7 @@ function profileInput(overrides: Partial<ProfileInput> = {}): ProfileInput {
     bundles: [],
     dependencies: [],
     patches: [],
+    resolvableNames: new Set(['dsh-plugin-ok']),
     loaderEntries: [],
     ...overrides,
   }
@@ -92,6 +93,18 @@ describe('runClinic', () => {
     const report = runClinic(input(profiles))
     const profile = report.profiles[0]
     expect(profile?.profileFindings).toContainEqual(expect.objectContaining({ checkId: 'patch-health', severity: 'critical' }))
+  })
+
+  it('matches patch override rows against the raw row id of mounted entries', () => {
+    // Mounted entry ids carry the tree prefix ('include:system-prompt'); the
+    // override row targets the raw id and must not be flagged.
+    const profiles = [profileInput({
+      patches: [{ file: 'base.yml', rows: [{ kind: 'override', id: 'system-prompt' }] }],
+      loaderEntries: entries({ entryId: 'include:system-prompt', rawId: 'system-prompt', moduleName: '@deepseek-ai/dsh-system-prompt' }),
+    })]
+    const report = runClinic(input(profiles))
+    const profile = report.profiles[0]
+    expect(profile?.profileFindings.some((finding) => finding.checkId === 'patch-health')).toBe(false)
   })
 
   it('skips bundle checks and records the note when the manifest is unreadable', () => {

@@ -16,13 +16,15 @@ export const NS = 'settings.clinic'
 export const inject = ['slots', 'locale']
 
 /** Contribute the lazy Clinic tab to the Plugins settings section. */
-export function apply(ctx: ClientContext, config: { webRoutePrefix?: string }): void {
+export function apply(ctx: ClientContext, config?: { webRoutePrefix?: string }): void {
   const slots: ClientSlotsService = ctx.slots
   const locale: ClientLocaleService = ctx.locale
   ctx.effect(() => locale.register(NS, { zh, en }), 'dsh-plugin-clinic: dictionaries')
 
   const t = locale.bind(NS)
-  const prefix = config.webRoutePrefix ?? '/clinic'
+  // The official client loader hands a bare (config-less) patch row an
+  // undefined config — optional-chaining keeps the default prefix intact.
+  const prefix = config?.webRoutePrefix ?? '/clinic'
   const injected = (): ClinicTabInjected => ({
     summaryUrl: `${prefix}/health/summary`,
     detailUrl: `${prefix}/health`,

@@ -7,7 +7,9 @@
 
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { apply as clientApply } from '../src/client/index.ts'
 import { ClinicTab, type ClinicTabProps } from '../src/client/ClinicTab.tsx'
+import type { ClientContext } from '../src/client/slot-types.ts'
 import { zh } from '../src/client/locales.ts'
 import type { ClinicReport } from '../src/types.ts'
 
@@ -90,5 +92,52 @@ describe('ClinicTab', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(empty), { status: 200 })))
     render(<ClinicTab {...props()} />)
     expect(await screen.findByText(zh.empty)).toBeTruthy()
+  })
+})
+
+/** Build a minimal client context recording the slot registration. */
+function clientContext() {
+  const registrations: Array<{ name: string; id: string; inject?: () => unknown }> = []
+  const ctx = {
+    slots: {
+      inject(_name: string, factory: () => () => void) {
+        factory()
+      },
+      register(options: { name: string; id: string; inject?: () => unknown }, _component: unknown) {
+        registrations.push(options)
+        return () => {}
+      },
+    },
+    locale: {
+      register() {},
+      bind() {
+        return (key: string): string => zh[key as keyof typeof zh] ?? key
+      },
+    },
+    effect() {},
+    get: () => undefined,
+    logger: { info() {}, warn() {}, error() {} },
+  } satisfies ClientContext
+  return { ctx, registrations }
+}
+
+describe('client apply', () => {
+  it('registers the clinic tab with the default /clinic prefix when the loader passes no config', () => {
+    // The official client loader hands a config-less patch row an undefined
+    // config (regression: eager config.webRoutePrefix dereference crashed
+    // the whole entry in a real web profile).
+    const { ctx, registrations } = clientContext()
+    expect(() => clientApply(ctx as ClientContext, undefined)).not.toThrow()
+    expect(registrations).toHaveLength(1)
+    expect(registrations[0]?.id).toBe('clinic')
+    expect(registrations[0]?.inject?.() as { summaryUrl: string; detailUrl: string })
+      .toEqual({ summaryUrl: '/clinic/health/summary', detailUrl: '/clinic/health' })
+  })
+
+  it('honours a configured webRoutePrefix', () => {
+    const { ctx, registrations } = clientContext()
+    clientApply(ctx as ClientContext, { webRoutePrefix: '/custom-clinic' })
+    expect(registrations[0]?.inject?.() as { summaryUrl: string; detailUrl: string })
+      .toEqual({ summaryUrl: '/custom-clinic/health/summary', detailUrl: '/custom-clinic/health' })
   })
 })

@@ -19,19 +19,46 @@ import type { ClinicReport } from '../src/types.ts'
 import { createFixtureHome } from './helpers/fixtures.ts'
 import * as TestHost from './helpers/host.ts'
 
+/** Boot options: when the webServer service mounts relative to the clinic entry. */
+interface BootOptions {
+  webServer: 'before' | 'after' | 'none'
+}
+
+/** Poll a URL until it answers 200 (the lazy route registers on a microtask after webServer appears). */
+async function pollStatus(baseUrl: string, path: string, timeoutMs = 5_000): Promise<number> {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    try {
+      const response = await fetch(`${baseUrl}${path}`)
+      if (response.status === 200) return 200
+      if (Date.now() > deadline) return response.status
+    } catch {
+      if (Date.now() > deadline) throw new Error(`poll ${path} timed out`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+}
+
 /** Boot the composition; returns handles for assertions and teardown. */
-async function boot(dshHome: string) {
+async function boot(dshHome: string, options: BootOptions = { webServer: 'before' }) {
   const previous = process.env.DSH_HOME
   process.env.DSH_HOME = dshHome
 
   const ctx = new Context()
   await ctx.plugin(TestHost)
-  await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 })
+  if (options.webServer === 'before') {
+    await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 })
+  }
   await ctx.plugin(Loader)
   const loader = ctx.loader
   const clinicEntry = pathToFileURL(join(import.meta.dirname, '..', 'src', 'index.ts')).href
   await loader.root.create({ name: clinicEntry })
   await loader.await()
+  if (options.webServer === 'after') {
+    // Real profile trees mount the webserver row in parallel with plugin rows;
+    // provide it only after the clinic entry settled to reproduce that race.
+    await ctx.plugin(WebServer, { host: '127.0.0.1', port: 0 })
+  }
 
   // Read the tools registry through the host service.
   const tools = ctx.get('tools') as unknown as { list(): string[]; get(name: string): { name: string; execute(args: Record<string, unknown>): Promise<unknown> } | undefined }
@@ -40,7 +67,7 @@ async function boot(dshHome: string) {
     ctx,
     loader,
     tools,
-    webServer: ctx.get('webServer') as unknown as { port: number },
+    webServer: ctx.get('webServer') as unknown as { port: number } | undefined,
     async teardown() {
       // Remove every entry explicitly: stop()/update([]) do not clear the
       // entry store in the npm loader build.
@@ -92,7 +119,8 @@ describe('composition: clinic plugin under the real Loader', () => {
       expect(webOnly?.summary.warning).toBe(0)
 
       // HTTP routes answer with Host enforcement.
-      const baseUrl = `http://127.0.0.1:${webServer.port}`
+      expect(webServer).toBeDefined()
+      const baseUrl = `http://127.0.0.1:${(webServer as unknown as { port: number }).port}`
       const response = await fetch(`${baseUrl}/clinic/health`)
       expect(response.status).toBe(200)
       const viaHttp = (await response.json()) as ClinicReport
@@ -113,6 +141,49 @@ describe('composition: clinic plugin under the real Loader', () => {
       // Unload: the loader tree empties. Tool-registration withdrawal is the
       // official tools registry's fiber binding (not modelled by the mock),
       // so the real-Loader assertion is the entry teardown itself.
+      await teardown()
+      expect([...ctx.loader.entries()].length).toBe(0)
+    }
+  })
+
+  it('registers the /clinic routes lazily when the webServer mounts after the clinic entry', async () => {
+    // A real profile tree composes the webserver row in parallel with plugin
+    // rows, so the service can appear after this entry applied. The routes
+    // must still answer (regression: eager ctx.get at apply time skipped them).
+    fixture = await createFixtureHome()
+    const { webServer, teardown } = await boot(fixture.dshHome, { webServer: 'after' })
+    try {
+      expect(webServer).toBeDefined()
+      const baseUrl = `http://127.0.0.1:${(webServer as unknown as { port: number }).port}`
+      expect(await pollStatus(baseUrl, '/clinic/health')).toBe(200)
+      expect(await pollStatus(baseUrl, '/clinic/health/summary')).toBe(200)
+      // Host enforcement applies to the lazily registered routes too.
+      const forbiddenStatus = await new Promise<number>((resolve, reject) => {
+        const req = httpRequest(`${baseUrl}/clinic/health`, { method: 'GET', headers: { host: 'evil.example.com' } }, (res) => {
+          res.resume()
+          resolve(res.statusCode ?? 0)
+        })
+        req.on('error', reject)
+        req.end()
+      })
+      expect(forbiddenStatus).toBe(403)
+    } finally {
+      await teardown()
+    }
+  })
+
+  it('loads and serves the tool in a headless composition with no webServer', async () => {
+    fixture = await createFixtureHome()
+    const { ctx, tools, webServer, teardown } = await boot(fixture.dshHome, { webServer: 'none' })
+    try {
+      expect(webServer).toBeUndefined()
+      expect(tools.list()).toContain('plugin_health')
+      const tool = tools.get('plugin_health')
+      expect(tool).toBeDefined()
+      const report = (await tool?.execute({ details: false })) as ClinicReport
+      expect(report.schemaVersion).toBe(1)
+      expect(report.profiles.map((profile) => profile.profile).sort()).toEqual(['broken', 'web'])
+    } finally {
       await teardown()
       expect([...ctx.loader.entries()].length).toBe(0)
     }

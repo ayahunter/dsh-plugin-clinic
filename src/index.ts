@@ -8,6 +8,8 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
+import type {} from '@deepseek-ai/dsh-host-webserver'
+import type {} from '@deepseek-ai/dsh-invariants'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import type { Severity } from './types.ts'
 import { ClinicConfigSchema, type ClinicConfig } from './types.ts'
@@ -46,23 +48,22 @@ export function apply(ctx: Context, config: ClinicConfig): void {
   }
 
   if (config.enableWebRoute !== false) {
-    const webServer = ctx.get('webServer')
-    if (webServer !== undefined) {
-      const disposer = webServer.register(createClinicRoute({
+    // Lazy mount: the webserver row mounts in parallel with this entry in a
+    // real profile tree, so the service may not exist at apply time (it never
+    // does in a headless tree). Injecting waits for the service instead of
+    // racing it; without a webServer the routes simply never register.
+    ctx.inject(['webServer'], (webCtx) => {
+      const disposer = webCtx.webServer.register(createClinicRoute({
         prefix: config.webRoutePrefix ?? '/clinic',
         runner,
       }))
       ctx.effect(() => disposer, 'dsh-plugin-clinic: /clinic routes')
-    } else {
-      ctx.logger.info('dsh-plugin-clinic: webServer not present; /clinic routes skipped')
-    }
+    })
   }
 
-  const invariants = ctx.get('invariants')
-  if (invariants !== undefined) {
-    const disposer = invariants.register('dsh-plugin-clinic', install)
+  // Same lazy pattern for the optional invariant companion.
+  ctx.inject(['invariants'], (invCtx) => {
+    const disposer = invCtx.invariants.register('dsh-plugin-clinic', install)
     ctx.effect(() => disposer, 'dsh-plugin-clinic: invariant companion')
-  } else {
-    ctx.logger.info('dsh-plugin-clinic: invariants service not present; invariant companion skipped')
-  }
+  })
 }
