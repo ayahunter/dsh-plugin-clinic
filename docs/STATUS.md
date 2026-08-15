@@ -31,23 +31,22 @@
   4. patch-health insert 按真实安装解析（in-box fallback + 子路径）+ override 按原始
      row id 匹配（快照新增 `rawId`）——真实部署 100+ 假 critical 全部消除，
      真实信号（peer/兼容/脚本/重复）保留。
-- [x] **CI 兼容矩阵（T3，已提交 36f7652）** —— `.github/workflows/compat.yml`：
-  DSH `0.1.0-rc.3` 与 `0.1.0-rc.6`（npm registry 现存两档）× Ubuntu/Windows，
-  每格 pin 依赖后跑 typecheck + test + build；`scripts/pin-dsh-version.mjs`。
-  **状态：文件完成，待推送到 GitHub 后生效。**
+- [x] **CI 兼容矩阵（T3，已提交 36f7652；2026-08-16 首跑全绿）** ——
+  `.github/workflows/compat.yml`：DSH `0.1.0-rc.3` 与 `0.1.0-rc.6`（npm registry 现存
+  两档）× Ubuntu/Windows，每格 pin 依赖后跑 typecheck + test + build；
+  `scripts/pin-dsh-version.mjs`。**`v0.1.0` tag 触发 run #1：四单元全部 success**
+  （含历史 rc.3 兼容）。
 
 ## 进行中 / 待办
 
-- [x] **发布 v0.1.0（T2，2026-08-16 完成）** ——
+- [x] **发布 v0.1.0（T2，2026-08-16 全部完成）** ——
   - npm：`dsh-plugin-clinic@0.1.0` 已发布（`latest` tag）；发布前发现并修复发布阻断 bug
     （types/exports/files 指向不存在的 `lib/types/` 且 files 漏掉运行时模块，提交 28610ec）；
     tarball 安装冒烟测试通过（main/invariant/types 可加载、13 个 d.ts、engine 完整）。
-  - GitHub：`ayahunter/dsh-plugin-clinic` 仓库已存在并推送（用户完成）；补设仓库
-    description、homepage（npm 包页）与 **`dsh-plugin` topic**（Oh-My-DSH 自动收录
-    入口 + awesome 清单要求）；`v0.1.0` tag 已推送并**触发 CI 兼容矩阵**。
-  - 剩余：awesome-dsh-plugin 精选清单 PR（条目文本已备妥，见下节）。
-- [ ] **CI 兼容矩阵结果（T3）** —— `v0.1.0` tag 已触发（2 OS × rc.3/rc.6 四单元）；
-  结果待确认（rc.3 单元失败属预期发现，记录后跟进）。
+  - GitHub：`ayahunter/dsh-plugin-clinic` 仓库（用户创建并推送）；补设 description、
+    homepage（npm 包页）与 **`dsh-plugin` topic**；`v0.1.0` tag 已推送。
+  - 社区清单：awesome-dsh-plugin **PR #714**（open，待合并）；Oh-My-DSH 经 topic 自动
+    同步；beancookie 未提交（视需要）。
 
 ## 社区清单提交准备（T2 调研结论，待 GitHub 凭据）
 
@@ -64,15 +63,15 @@ PR 条目文本模板（等 GitHub 仓库创建后替换 `<owner>`）：
 **策略**：创建 GitHub 仓库后立即打 `dsh-plugin` topic（同时满足 Oh-My-DSH 自动收录与
 awesome 主清单要求），再向 awesome-dsh-plugin 提 PR，beancookie 视需要提 PR。
 
-## 阻塞解除步骤（T2）——已完成，仅剩 awesome PR
+## 阻塞解除步骤（T2）——全部完成 ✅
 
 1. ~~npm publish~~ ✅ 2026-08-16 完成（账号 ayahunter；2FA 经 bypass token 通过；
    期间修复 .npmrc token 行缺失 `//` 前缀的格式问题）。
 2. ~~GitHub 仓库 + topic~~ ✅ 完成（description/homepage/topic 已通过 API 设置）。
-3. **awesome-dsh-plugin PR**（待做，条目文本见下节）：
-   - fork `awesome-dsh-plugin/awesome-dsh-plugin` → 在 `README.md` 与 `README.zh.md`
-     的 Development & Runtime 类别追加一行条目（文本模板见下节）→ PR。
-   - beancookie/awesome-dsh-plugin 视需要提 PR。
+3. ~~awesome-dsh-plugin PR~~ ✅ **PR #714**（open，2026-08-16）：
+   fork `awesome-dsh-plugin/awesome-dsh-plugin` → 双语 README 的 Development & Runtime
+   类别各加一行 → 分支 `add-dsh-plugin-clinic` → PR；待维护者合并。
+   - beancookie/awesome-dsh-plugin 未提交（视需要）。
    - Oh-My-DSH 无需操作（`dsh-plugin` topic 已打，4 小时自动同步）。
 
 ## 真实环境观察（T1 附带结论）
