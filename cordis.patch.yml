@@ -1,0 +1,7 @@
+# dsh-plugin-clinic bundle patch: one row mounts both halves. The node half
+# (engine, plugin_health tool, /clinic health routes) runs in the Host; the
+# web dsh.client declaration makes the modules scanner resolve
+# exports["./client"] and load the browser half (Settings 体检 tab).
+- insert:
+    - id: clinic
+      name: 'dsh-plugin-clinic'
