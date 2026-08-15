@@ -1,6 +1,6 @@
 # 进度状态（STATUS）
 
-> 更新：2026-08-16（实施阶段完成，待真实环境验收与发布）。
+> 更新：2026-08-16（真实环境验收完成，发现并修复 4 个真实 bug；待发布）。
 > 权威设计见 [PLAN.md](PLAN.md)；本文只记录"做到哪了"。
 
 ## 已完成
@@ -9,49 +9,96 @@
   三份竞品实证核查（npm registry + 源码解包）；定位"已安装集合的持续体检"缺口。
   证据链：`D:\agentwork\code\deepseek-harness\docs\research\2026-08-16-dsh-community-plugin-gap-research.md`
 - [x] **方案规划** —— `docs/PLAN.md`
-- [x] **未决事项（附录 B）全部解决**
-  - 外部 Client 构建格式：**已解决并验证**——`window.__ModuleLoader__.load({id, factory})`
-    闭包工厂配方复刻自官方 `packages/client/tsdown.client.ts`；构建产物格式与官方一致
-    （head/tail 实测）
-  - npm 名称占用：`dsh-plugin-clinic` **未被占用**（2026-08-16 核验）
-  - `dsh-external/plugin-template`：npm 无此包；以 dsh-eval 包结构 + 官方规范为基准实施；
-    联网后对照 GitHub 仓库修订（见 PLAN 附录 B 备注）
-- [x] **仓库骨架** —— package.json（bundle + client 双声明）、tsconfig 双配置、
-  tsdown.config.ts（官方配方）、cordis.patch.yml、LICENSE、.gitignore、AGENTS.md、README 双语
-- [x] **诊断引擎** —— `src/types.ts`（Config zod schema + 报告契约 schemaVersion 1）、
-  `src/engine/inventory.ts`（loader 快照、profile/包/patch 收集、环境收集）、
-  `src/engine/checks.ts`（8 检查器纯函数）、`src/engine/report.ts`（组装/折叠/summary/过滤）
-- [x] **交付面** —— `src/tool.ts`（plugin_health：完整 output schema + details 裁剪 +
-  markdown 渲染）、`src/route.ts`（/clinic 前缀路由 + Host 头防护）、`src/run.ts`（runner 契约）、
-  `src/index.ts`（Host apply 组装：工具 + 路由 + invariant 可选注册）、`src/invariant.ts`
-- [x] **Web 面板** —— `src/client/`（官方 `settings.plugins.tab` 注册形态 + 本地类型面
-  slot-types.ts + ClinicTab 组件 + locales 双语）
-- [x] **测试** —— 78 个测试全绿：8 检查器好坏 fixture 对、report 折叠/过滤/投影、
-  inventory 解析与收集（临时 DSH_HOME fixture）、工具渲染与注册、路由 stub + 真实 HTTP、
-  **真实 Loader 组合测试**（cordis-plugin-loader + 真实 webServer + fixture DSH_HOME +
-  Host 头伪造 403）、组件测试（jsdom）
-- [x] **构建验证** —— `pnpm run build` 产出 `lib/`（Host ESM）+ `lib/client.js`（官方格式）+
-  d.ts；`pnpm run typecheck` 全绿
-- [x] **覆盖率** —— 语句 90.5%；engine 层 80-96%（剩余行全部由断言覆盖，v8 行映射噪声
-  已加带理由的 ignore；inventory/report 的真实缺口分支已补测）
+- [x] **未决事项（附录 B）全部解决** —— 见旧版记录（Client 构建格式已实证、npm 名称未被占用、
+  plugin-template 待联网对照）
+- [x] **仓库骨架 / 诊断引擎 / 交付面 / Web 面板 / 测试 / 构建 / 覆盖率** —— 实施阶段全绿
+  （typecheck、88/88 测试、build、覆盖率语句 90.51%）
+- [x] **真实环境验收（T1，2026-08-16）** —— 官方 rc.5 真实 dsh（harness 源码 CLI）实证：
+  1. `dsh plugin --profile web add <仓库路径>` 成功，bundle 自动调和，重启无错；
+  2. **外部 Client half 在官方 web GUI 加载成功（里程碑 gate）**：Edge headless 驱动真实
+     GUI，设置 → 插件 → "体检" tab 出现并渲染健康摘要（严重/警告/提示计数 + 插件卡片）；
+  3. 人为破坏（bundles 塞 `dsh-plugin-nonexistent`）→ 真实 rc.5 **boot fail loud**（进程
+     退出 1），`plugin_health` 在 headless profile 真实 agent 调用中报告 web profile 的
+     critical finding（`Bundle "dsh-plugin-nonexistent" is not resolvable`）；
+  4. headless profile 下 `plugin_health` 真实可用（真实 Loader + 真实 LLM 调用成功）；
+  5. `curl /clinic/health` 200（真实 JSON 报告）；伪造 Host 头 403；
+  6. `dsh plugin remove` 后无残留：manifest 恢复原状、路由随 fiber 撤销（SPA 壳）、
+     `__DSH_BOOT__` 无条目、client bundle 404。
+- [x] **T1 验收驱动修复（4 个真实 bug，已提交 1e627e0）**：
+  1. Host 路由装载竞争 → `ctx.inject(['webServer'])` 惰性挂载（invariants 同理）；
+  2. Client `apply(ctx, undefined)` 崩溃（官方 loader 对无配置行传 undefined）→ config 可选；
+  3. patch YAML 官方 `!!js` 方言解析失败 → 按 `entryListSchema` 方言解析（假 critical 消除）；
+  4. patch-health insert 按真实安装解析（in-box fallback + 子路径）+ override 按原始
+     row id 匹配（快照新增 `rawId`）——真实部署 100+ 假 critical 全部消除，
+     真实信号（peer/兼容/脚本/重复）保留。
+- [x] **CI 兼容矩阵（T3，已提交 36f7652）** —— `.github/workflows/compat.yml`：
+  DSH `0.1.0-rc.3` 与 `0.1.0-rc.6`（npm registry 现存两档）× Ubuntu/Windows，
+  每格 pin 依赖后跑 typecheck + test + build；`scripts/pin-dsh-version.mjs`。
+  **状态：文件完成，待推送到 GitHub 后生效。**
 
 ## 进行中 / 待办
 
-- [ ] **真实环境验收**（`docs/development.md` §验收清单）——需要真实 dsh 安装：
-  1. `dsh plugin --profile web add dsh-plugin-clinic` 后重启无错；
-  2. 设置 → 插件 → "体检" tab 显示健康度（**外部 Client half 在官方 web GUI 的加载是
-     里程碑 gate，未实测**）；
-  3. 人为破坏（塞不存在的 bundle）→ 面板标红 critical、`plugin_health` 报告含 finding；
-  4. headless profile 下工具可用；5. remove 无残留。
-- [ ] **发布 v0.1.0** —— npm publish（`pnpm run build` 后）+ GitHub 仓库 + `dsh-plugin` topic
-  + 提交社区清单（awesome-dsh-plugin / Oh-My-DSH）
-- [ ] **CI 兼容矩阵** —— 多 DSH 版本实测（doctor 先例），官方 rc API 漂移跟踪
+- [ ] **发布 v0.1.0（T2）** —— 名称核验完成（2026-08-16 官方 registry 404 未被占用）；
+  **阻塞点**：npm 未登录（`npm whoami` → ENEEDAUTH）且 registry 指向
+  `https://registry.npmmirror.com`（发布必须用官方 registry）；无 GitHub 凭据
+  （无 gh CLI、无 GITHUB_TOKEN）。解除步骤见下方"阻塞解除步骤（T2）"；
+  社区清单提交准备已完成（见下节）。
+- [ ] **CI 兼容矩阵生效（T3）** —— workflow 与 pin 脚本已提交（36f7652），
+  待推送到 GitHub 后随 tag/manual dispatch 生效。
+
+## 社区清单提交准备（T2 调研结论，待 GitHub 凭据）
+
+| 清单 | 仓库 | 收录方式 |
+|---|---|---|
+| awesome-dsh-plugin（2649★） | awesome-dsh-plugin/awesome-dsh-plugin | PR：README.md + README.zh.md 的 Development & Runtime 类别各加一行 `- [name](link) — 一句话`；同时要求仓库打 `dsh-plugin` topic |
+| Oh-My-DSH | like-study1/Oh-My-DSH | **打 `dsh-plugin` topic 后自动同步**（每 4 小时抓取主题快照 + 人工策展），无需 PR；备选 Issue 登记 |
+| beancookie/awesome-dsh-plugin | beancookie/awesome-dsh-plugin | 欢迎 PR（README #贡献 链接） |
+
+PR 条目文本模板（等 GitHub 仓库创建后替换 `<owner>`）：
+- EN：`- [dsh-plugin-clinic](https://github.com/<owner>/dsh-plugin-clinic) - Read-only health clinic for the installed DSH plugin set: loader health, dependency integrity, version compatibility, install-script risk, duplicates and patch integrity, delivered as a model tool, a Settings dashboard and JSON reports.`
+- ZH：`- [dsh-plugin-clinic](https://github.com/<owner>/dsh-plugin-clinic) - 已安装 DSH 插件集合的只读体检诊所：加载健康、依赖完整、版本兼容、安装脚本风险、重复与 patch 引用，交付模型工具、设置面板与 JSON 报告。`
+
+**策略**：创建 GitHub 仓库后立即打 `dsh-plugin` topic（同时满足 Oh-My-DSH 自动收录与
+awesome 主清单要求），再向 awesome-dsh-plugin 提 PR，beancookie 视需要提 PR。
+
+## 阻塞解除步骤（T2）
+
+1. **npm publish**：
+   ```sh
+   npm login --registry=https://registry.npmjs.org   # 输入 npm 账号凭据
+   cd D:\agentwork\code\dsh-plugin-clinic
+   pnpm run typecheck && pnpm run test && pnpm run build
+   pnpm publish --registry=https://registry.npmjs.org --access public
+   ```
+2. **GitHub 仓库 + topic**（任选其一）：
+   - 安装 gh CLI 并 `gh auth login`，然后：
+     ```sh
+     gh repo create dsh-plugin-clinic --public --source . --push
+     gh repo edit dsh-plugin-clinic --add-topic dsh-plugin
+     ```
+   - 或网页端：新建同名仓库 → 推送 → Settings → Topics 添加 `dsh-plugin`。
+3. **社区清单**（均需 GitHub 账号，网页或 gh 提 PR/issue）：
+   - `awesome-dsh-plugin`（HANDOFF 记录 270+ 收录）：找到仓库后按 README 贡献流程
+     在列表追加 `dsh-plugin-clinic`（一行：名称 + 链接 + 一句话定位）。
+   - `Oh-My-DSH`：找到仓库后按其贡献流程提 PR。
+   - `beancookie`：找到仓库后按其贡献流程提 PR/issue。
+
+## 真实环境观察（T1 附带结论）
+
+- **boot fail loud 前置**：rc.5 对不可解析 bundle 直接拒绝 boot（退出码 1）——"面板标红
+  critical"与"web profile 可 boot"在真实环境互斥；面板 critical 渲染由组件测试覆盖，
+  报告/工具侧 critical 已真实实证。README 无需改（行为符合"boot 时才暴露提前到任何时刻"）。
+- **报告数字随会话浮动**：web profile 的 `duplicate` warning 随活跃会话数变化
+  （per-session preset 行），引擎如实反映实时 Loader 树。
+- **`profiles/node_modules` 被当作 profile 扫描**（安装级 fallback 目录，无 manifest，
+  报告为空 profile）——无害，列为观察项。
 
 ## 阻塞与风险
 
 | 项 | 状态 | 说明 |
 |---|---|---|
-| 外部 Client half 真实加载 | **里程碑 gate** | 社区 Web GUI 插件有先例且构建格式已按官方配方复刻，但必须在真实 web profile 验证；失败则降级为独立 HTML 面板 |
+| 外部 Client half 真实加载 | **已解除** | 2026-08-16 真实 GUI 验证通过（里程碑 gate） |
 | Electron 桌面壳 fetch 通道 | 风险 | 未验证；列入 README Known Limitations |
-| 官方 0.0.1-rc/0.1.0-rc API 漂移 | 风险 | peer 范围已用 ^0.1.0-rc.6 体系；发布后 CI 矩阵跟踪 |
-| 官方 npm client 类型包断链 | 已规避 | npm 发布 d.ts 带 `.ts` re-export，外部消费者不可解析；已本地化类型面（src/client/slot-types.ts，对照官方源码） |
+| 官方 0.1.0-rc API 漂移 | 跟踪中 | CI 矩阵（rc.3/rc.6）已就绪，推送 GitHub 后生效 |
+| 官方 npm client 类型包断链 | 已规避 | 类型面本地化（src/client/slot-types.ts） |
+| npm publish / GitHub 凭据 | 待核验 | T2 进行中 |
