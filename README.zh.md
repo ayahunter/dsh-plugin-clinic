@@ -37,10 +37,19 @@ dsh plugin --profile web add dsh-plugin-clinic
 
 # 或直接从 GitHub（源码安装；prepare 脚本负责构建，pnpm 会要求你显式允许一次构建——
 # 语义见官方发布指南的 allowBuilds 说明）
-dsh plugin --profile web add github:you/dsh-plugin-clinic
+dsh plugin --profile web add github:ayahunter/dsh-plugin-clinic
 ```
 
 重启 profile。设置 → 插件 会出现"体检"tab；会话中获得 `plugin_health` 工具。
+
+### 更新
+
+```sh
+# 在已保存的 semver 范围内升级（^0.1.0 → 最新 0.1.x）
+dsh plugin --profile web update dsh-plugin-clinic
+```
+
+插件不会自动更新；更新后重启 profile。
 
 ## 快速开始
 

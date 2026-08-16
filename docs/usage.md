@@ -10,12 +10,21 @@ dsh plugin --profile web add dsh-plugin-clinic
 ```
 
 - 从 npm 安装的是预构建产物，无需任何构建权限。
-- 从 GitHub 安装（`github:you/dsh-plugin-clinic`）会拿到源码，`prepare` 脚本负责构建；
+- 从 GitHub 安装（`github:ayahunter/dsh-plugin-clinic`）会拿到源码，`prepare` 脚本负责构建；
   pnpm ≥10 会拒绝运行 git 依赖的 `prepare`，第一次 `add` 会失败并打印需要允许的包名——
   把它加入 profile 的 `pnpm-workspace.yaml` `allowBuilds` 后重试。允许构建意味着
   **允许该包代码在安装时于沙箱外执行**，只对信任的源这样做，并建议固定 commit。
 
 安装后重启 profile（`dsh plugin` 会提示，或手动重启 dsh）。
+
+### 更新
+
+```sh
+dsh plugin --profile web update dsh-plugin-clinic
+```
+
+`update` 转发 `pnpm update`：在已保存的 semver 范围（`add` 默认写入 `^0.1.0`）内
+升到最新（当前 0.1.1）。插件**不会自动更新**；更新后重启 profile 生效。
 
 ## 三个使用入口
 

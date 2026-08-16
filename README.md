@@ -42,11 +42,20 @@ dsh plugin --profile web add dsh-plugin-clinic
 
 # or straight from GitHub (sources; the prepare script builds them, pnpm asks you to
 # allow the build once — see the official publish guide for the allowBuilds semantics)
-dsh plugin --profile web add github:you/dsh-plugin-clinic
+dsh plugin --profile web add github:ayahunter/dsh-plugin-clinic
 ```
 
 Restart the profile. The Settings → Plugins section gains a Clinic tab; the session gains
 the `plugin_health` tool.
+
+### Update
+
+```sh
+# upgrades within the saved semver range (^0.1.0 → latest 0.1.x)
+dsh plugin --profile web update dsh-plugin-clinic
+```
+
+Upgrades are never applied automatically; restart the profile afterwards.
 
 ## Quick start
 
