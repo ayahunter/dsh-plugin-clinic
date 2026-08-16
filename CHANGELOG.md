@@ -3,6 +3,14 @@
 本项目的变更日志。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.2] - 2026-08-16
+
+### Fixed
+
+- **README 安装占位符**：GitHub 安装命令的 `github:you/` 占位符改为真实 owner
+  `github:ayahunter/dsh-plugin-clinic`；README 双语与 usage.md 补充插件更新说明
+  （`dsh plugin --profile web update`，不自动更新、更新后重启）。
+
 ## [0.1.1] - 2026-08-16
 
 ### Fixed

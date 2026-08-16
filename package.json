@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-clinic",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Plugin Clinic: read-only health checks for the installed DeepSeek Harness plugin set — loader health, dependency integrity, version compatibility, install-script risk, duplicates, and patch integrity, delivered as a model tool, a Web dashboard, and JSON reports.",
   "type": "module",
   "engines": {
