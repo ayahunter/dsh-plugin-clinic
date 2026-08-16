@@ -3,6 +3,16 @@
 本项目的变更日志。格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [0.1.1] - 2026-08-16
+
+### Fixed
+
+- **peer-deps 误报（PR #1）**：peer 对照表扩展为 profile 中全部实际可解析的包
+  （含 DSH 经 `~/.dsh/profiles/node_modules` 与安装目录 fallback 提供的 peer），
+  消除 harness 提供 peer 被误报 `required peer <range>` 缺失的假 warning；
+  exports 不暴露 `./package.json` 的包（如 `sharp`）按入口路径回退解析，
+  不再误判为不可解析。
+
 ## [0.1.0] - 2026-08-16
 
 ### Fixed（真实环境验收发现）

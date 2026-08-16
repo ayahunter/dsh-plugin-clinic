@@ -44,7 +44,9 @@
 | 必需 peer 已装但版本不满足 semver 区间（`includePrerelease`） | warning | 要求区间 vs 实际版本 |
 | 可选 peer 缺失 | info | `optional peer <range>` |
 
-说明：peer 对照表 = profile 的 bundles + dependencies（含 in-box 包）。
+说明：peer 对照表 = profile 的 bundles + dependencies + 全部实际可解析的 peer
+（含 DSH 经 `~/.dsh/profiles/node_modules` 与安装目录 fallback 提供的 peer，以及
+in-box 包）；exports 不暴露 `./package.json` 的包（如 `sharp`）按入口路径回退解析。
 
 ## 4. `runtime-compat` — 版本兼容（每插件）
 
