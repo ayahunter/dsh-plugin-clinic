@@ -7,7 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   collectInput, listProfileNames, parsePatchRows, readPatchFile,
-  readProfileManifest, resolveInstalledVersion, snapshotLoaderEntries,
+  readProfileManifest, resolveInstalledPackage, resolveInstalledVersion, snapshotLoaderEntries,
 } from '../src/engine/inventory.ts'
 import { createFixtureHome, entries, fixtureEnvironment } from './helpers/fixtures.ts'
 import { join } from 'node:path'
@@ -353,6 +353,60 @@ describe('readPatchFile', () => {
 describe('parsePatchRows edge rows', () => {
   it('rejects a row that is neither an insert list nor an id override', () => {
     expect(parsePatchRows('- config:\n    x: 1\n')).toBeNull()
+  })
+})
+
+describe('resolveInstalledPackage', () => {
+  it('resolves packages whose exports do not expose ./package.json (e.g. sharp)', async () => {
+    const { dshHome, cleanup } = await createFixtureHome()
+    try {
+      const { mkdir, writeFile } = await import('node:fs/promises')
+      const { join } = await import('node:path')
+      const dir = join(dshHome, 'profiles', 'web')
+      const pkgDir = join(dir, 'node_modules', 'dsh-no-pkgjson-export')
+      await mkdir(pkgDir, { recursive: true })
+      await writeFile(join(pkgDir, 'package.json'), JSON.stringify({
+        name: 'dsh-no-pkgjson-export',
+        version: '1.2.3',
+        main: 'index.js',
+        exports: { '.': './index.js' },
+      }))
+      await writeFile(join(pkgDir, 'index.js'), 'export const ok = true\n')
+
+      const resolved = await resolveInstalledPackage('dsh-no-pkgjson-export', dir)
+      expect(resolved.resolveError).toBeUndefined()
+      expect(resolved.manifest?.version).toBe('1.2.3')
+      expect(resolved.dir).toBe(pkgDir)
+    } finally {
+      await cleanup()
+    }
+  })
+})
+
+describe('collectInput peer fallback', () => {
+  it('includes peers resolved through the profiles/node_modules fallback in resolvedPackages', async () => {
+    const { dshHome, cleanup } = await createFixtureHome()
+    try {
+      const { mkdir, writeFile } = await import('node:fs/promises')
+      const { join } = await import('node:path')
+      const fallbackDir = join(dshHome, 'profiles', 'node_modules', '@deepseek-ai', 'cordis')
+      await mkdir(fallbackDir, { recursive: true })
+      await writeFile(join(fallbackDir, 'package.json'), JSON.stringify({
+        name: '@deepseek-ai/cordis',
+        version: '4.0.1',
+        main: 'index.js',
+        exports: { '.': './index.js', './package.json': './package.json' },
+      }))
+      await writeFile(join(fallbackDir, 'index.js'), 'export const ok = true\n')
+
+      const input = await collectInput(dshHome, fixtureEnvironment(dshHome), [], { profiles: ['web'] })
+      const web = input.profiles[0]
+      const cordis = web?.resolvedPackages.get('@deepseek-ai/cordis')
+      expect(cordis?.manifest?.version).toBe('4.0.1')
+      expect(cordis?.resolveError).toBeUndefined()
+    } finally {
+      await cleanup()
+    }
   })
 })
 

@@ -90,6 +90,12 @@ export interface ProfileInput {
    * names may be subpaths like `@deepseek-ai/dsh-web-app/startup`).
    */
   resolvableNames: ReadonlySet<string>
+  /**
+   * Every package that resolves from this profile, including peers supplied
+   * by the harness installation fallback. Peer-deps checks use this map so
+   * packages provided outside the profile manifest are not reported missing.
+   */
+  resolvedPackages: ReadonlyMap<string, InstalledPackage>
   loaderEntries: readonly LoaderEntrySnapshot[]
 }
 
@@ -140,16 +146,51 @@ export function snapshotLoaderEntries(entries: Iterable<LoaderEntryView>): Loade
   return snapshots
 }
 
+/**
+ * Resolve a package's package.json path from a profile directory.
+ *
+ * Most packages expose `./package.json` through their exports map, but some
+ * (e.g. `sharp`) do not. For those, fall back to resolving the package entry
+ * and walking up to the nearest package.json whose name matches the request.
+ */
+function resolvePackageJsonPathSync(specifier: string, fromFile: string): string | null {
+  const require = createRequire(fromFile)
+  try {
+    return require.resolve(`${specifier}/package.json`)
+  } catch {
+    // Fall through to the entry-point strategy for packages with restrictive
+    // exports maps that do not expose `./package.json`.
+  }
+  try {
+    const entry = require.resolve(specifier)
+    let current = dirname(entry)
+    for (;;) {
+      const candidate = join(current, 'package.json')
+      const text = readFileSyncSafe(candidate)
+      if (text !== null) {
+        try {
+          const parsed = JSON.parse(text) as { name?: string }
+          if (parsed.name === undefined || parsed.name === specifier) return candidate
+        } catch {
+          // Keep walking if this package.json is unparsable.
+        }
+      }
+      const parent = dirname(current)
+      if (parent === current) break
+      current = parent
+    }
+  } catch {
+    // Unresolvable.
+  }
+  return null
+}
+
 /** Resolve a package.json path to its version, or null when unresolvable. */
 export function resolveInstalledVersion(specifier: string, fromFile: string): string | null {
-  try {
-    const require = createRequire(fromFile)
-    const packageJsonPath = require.resolve(`${specifier}/package.json`)
-    const manifest = JSON.parse(readFileSyncSafe(packageJsonPath) ?? '{}') as { version?: string }
-    return typeof manifest.version === 'string' ? manifest.version : null
-  } catch {
-    return null
-  }
+  const packageJsonPath = resolvePackageJsonPathSync(specifier, fromFile)
+  if (packageJsonPath === null) return null
+  const manifest = JSON.parse(readFileSyncSafe(packageJsonPath) ?? '{}') as { version?: string }
+  return typeof manifest.version === 'string' ? manifest.version : null
 }
 
 /** Synchronous safe read used only by version resolution (module resolution is sync). */
@@ -203,11 +244,8 @@ export async function resolveInstalledPackage(
   name: string,
   profileDir: string,
 ): Promise<InstalledPackage> {
-  const profileRequire = createRequire(join(profileDir, 'package.json'))
-  let packageJsonPath: string
-  try {
-    packageJsonPath = profileRequire.resolve(`${name}/package.json`)
-  } catch {
+  const packageJsonPath = resolvePackageJsonPathSync(name, join(profileDir, 'package.json'))
+  if (packageJsonPath === null) {
     return { name, manifest: null, dir: null, patch: null, resolveError: `package "${name}" is not resolvable from the profile` }
   }
   let manifest: PkgManifest | null = null
@@ -326,7 +364,19 @@ async function collectProfile(name: string, dshHome: string, loaderEntries: read
   const { manifest, error: manifestError } = await readProfileManifest(dir)
 
   if (manifest === null) {
-    return { profile: name, dir, manifestPath, manifest: null, ...(manifestError !== undefined ? { manifestError } : {}), bundles: [], dependencies: [], patches: [], resolvableNames: new Set(), loaderEntries }
+    return {
+      profile: name,
+      dir,
+      manifestPath,
+      manifest: null,
+      ...(manifestError !== undefined ? { manifestError } : {}),
+      bundles: [],
+      dependencies: [],
+      patches: [],
+      resolvableNames: new Set(),
+      resolvedPackages: new Map(),
+      loaderEntries,
+    }
   }
 
   const bundles: InstalledPackage[] = []
@@ -338,6 +388,23 @@ async function collectProfile(name: string, dshHome: string, loaderEntries: read
   const dependencies: InstalledPackage[] = []
   for (const depName of dependencyNames) {
     dependencies.push(await resolveInstalledPackage(depName, dir))
+  }
+
+  // Build the full resolution map used by peer-deps. DSH supplies many peers
+  // through ~/.dsh/profiles/node_modules and the installation fallback rather
+  // than the profile manifest, so resolve every declared peer and keep it in
+  // the map when it actually resolves.
+  const resolvedPackages = new Map<string, InstalledPackage>()
+  for (const bundle of bundles) resolvedPackages.set(bundle.name, bundle)
+  for (const dependency of dependencies) resolvedPackages.set(dependency.name, dependency)
+  for (const installed of [...bundles, ...dependencies]) {
+    for (const peer of Object.keys(installed.manifest?.peerDependencies ?? {})) {
+      if (resolvedPackages.has(peer)) continue
+      const resolved = await resolveInstalledPackage(peer, dir)
+      if (resolved.resolveError === undefined && resolved.manifest !== null) {
+        resolvedPackages.set(peer, resolved)
+      }
+    }
   }
 
   /* v8 ignore next 1 -- exercised by the fixture collection tests; v8 sourcemap misattributes the declaration */
@@ -365,7 +432,18 @@ async function collectProfile(name: string, dshHome: string, loaderEntries: read
     }
   }
 
-  return { profile: name, dir, manifestPath, manifest, bundles, dependencies, patches, resolvableNames, loaderEntries }
+  return {
+    profile: name,
+    dir,
+    manifestPath,
+    manifest,
+    bundles,
+    dependencies,
+    patches,
+    resolvableNames,
+    resolvedPackages,
+    loaderEntries,
+  }
 }
 
 /**
