@@ -117,7 +117,7 @@ function runProfile(profile: ProfileInput, input: EngineInput, severity: Severit
 
 /** Map every installed package name to its resolution, for peer lookups. */
 function installedMap(profile: ProfileInput): ReadonlyMap<string, InstalledPackage> {
-  const map = new Map<string, InstalledPackage>()
+  const map = new Map<string, InstalledPackage>(profile.resolvedPackages)
   for (const bundle of profile.bundles) map.set(bundle.name, bundle)
   for (const dependency of profile.dependencies) map.set(dependency.name, dependency)
   return map

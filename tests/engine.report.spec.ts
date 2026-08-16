@@ -24,6 +24,7 @@ function profileInput(overrides: Partial<ProfileInput> = {}): ProfileInput {
     dependencies: [],
     patches: [],
     resolvableNames: new Set(['dsh-plugin-ok']),
+    resolvedPackages: new Map(),
     loaderEntries: [],
     ...overrides,
   }
